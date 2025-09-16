@@ -1,10 +1,10 @@
 import React from 'react';
-import DrawingCanvas from './components/DrawingCanvas';
+import RoomManager from './components/RoomManager';
 
 function App() {
   return (
     <div className="App">
-      <DrawingCanvas />
+      <RoomManager />
     </div>
   );
 }
