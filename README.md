@@ -1,8 +1,43 @@
-# Getting Started with Create React App
+# Pictionary 2
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A modern web-based Pictionary game built with React and TypeScript.
 
-## Available Scripts
+## 🎨 Features
+
+- Interactive drawing canvas
+- Real-time multiplayer gameplay
+- Modern UI with Tailwind CSS
+- TypeScript for type safety
+- Responsive design
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+- Node.js (version 16 or higher)
+- npm or yarn
+
+### Installation
+
+1. Clone the repository:
+```bash
+git clone <repository-url>
+cd pictionary2
+```
+
+2. Install dependencies:
+```bash
+npm install
+```
+
+3. Start the development server:
+```bash
+npm start
+```
+
+4. Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+
+## 🛠️ Available Scripts
 
 In the project directory, you can run:
 
@@ -11,8 +46,8 @@ In the project directory, you can run:
 Runs the app in the development mode.\
 Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
 
-The page will reload if you make edits.\
-You will also see any lint errors in the console.
+The page will reload when you make changes.\
+You may also see any lint errors in the console.
 
 ### `npm test`
 
@@ -27,20 +62,68 @@ It correctly bundles React in production mode and optimizes the build for the be
 The build is minified and the filenames include the hashes.\
 Your app is ready to be deployed!
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
-
 ### `npm run eject`
 
-**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
+**Note: this is a one-way operation. Once you `eject`, you can't go back!**
 
-If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
+## 🎯 Technology Stack
 
-You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
+- **React 19** - Frontend framework
+- **TypeScript** - Type safety
+- **Tailwind CSS** - Utility-first CSS framework
+- **React Testing Library** - Testing utilities
+- **Create React App** - Build tooling
 
-## Learn More
+## 📁 Project Structure
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+```
+pictionary2/
+├── public/
+│   ├── index.html
+│   └── ...
+├── src/
+│   ├── components/
+│   ├── App.tsx
+│   ├── index.tsx
+│   └── index.css
+├── package.json
+├── tailwind.config.js
+├── postcss.config.js
+└── README.md
+```
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+## 🤝 Contributing
+
+1. Fork the project
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+## 📝 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🎮 How to Play
+
+1. Players take turns drawing and guessing
+2. The drawer receives a word to illustrate
+3. Other players try to guess the word
+4. Points are awarded for correct guesses
+5. Have fun!
+
+## 🔧 Development
+
+### Tailwind CSS
+
+This project uses Tailwind CSS for styling. The configuration can be found in `tailwind.config.js`.
+
+### PostCSS
+
+PostCSS is configured in `postcss.config.js` to process Tailwind CSS and Autoprefixer.
+
+## 📞 Support
+
+If you have any questions or issues, please open an issue on GitHub.
