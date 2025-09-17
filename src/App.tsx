@@ -1,11 +1,14 @@
 import React from 'react';
 import RoomManager from './components/RoomManager';
+import { SocketProvider } from './context/SocketProvider';
 
 function App() {
   return (
-    <div className="App">
-      <RoomManager />
-    </div>
+    <SocketProvider>
+      <div className="App">
+        <RoomManager />
+      </div>
+    </SocketProvider>
   );
 }
 

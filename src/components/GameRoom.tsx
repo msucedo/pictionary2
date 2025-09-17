@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Room, Player, TurnTransition as TurnTransitionType } from '../types/room';
-import { ChatMessage } from '../types/chat';
-import { roomService } from '../services/roomService';
+import { Room, Player, TurnTransition as TurnTransitionType, ChatMessage } from '../types/room';
+import { socketService } from '../services/socketService';
 import DrawingCanvas, { DrawingCanvasRef } from './DrawingCanvas';
 import Chat from './Chat';
 import TurnTransition from './TurnTransition';
@@ -24,66 +23,77 @@ const GameRoom: React.FC<GameRoomProps> = ({
   const [transition, setTransition] = useState<TurnTransitionType | null>(null);
   const canvasRef = useRef<DrawingCanvasRef>(null);
 
-  // Simulate room updates and load messages
+  // Setup WebSocket event listeners
   useEffect(() => {
-    // Load initial messages
-    const initialMessages = roomService.getRoomMessages(room.id);
-    setMessages(initialMessages);
-
-    const roomUpdateInterval = setInterval(() => {
-      const updatedRoom = roomService.getRoom(room.id);
-      if (updatedRoom) {
-        // Check for turn transitions
-        if (updatedRoom.status === 'turn_transition' && room.status !== 'turn_transition') {
-          const transitionData = roomService.getTurnTransition(room.id);
-          if (transitionData) {
-            setTransition(transitionData);
-          }
-        }
-
-        // Check if it's a new turn - clear canvas
-        if (updatedRoom.currentDrawerId !== room.currentDrawerId && updatedRoom.status === 'playing') {
-          canvasRef.current?.clearCanvas();
-        }
-
-        setRoom(updatedRoom);
-
-        // Update current word when it changes
-        if (updatedRoom.currentWord && updatedRoom.currentWord !== currentWord) {
-          setCurrentWord(updatedRoom.currentWord);
+    // Room update listeners
+    const handleRoomUpdated = (updatedRoom: Room) => {
+      // Check for turn transitions
+      if (updatedRoom.status === 'turn_transition' && room.status !== 'turn_transition') {
+        // Create transition data from updated room
+        const nextDrawer = updatedRoom.players.find(p => p.id === updatedRoom.currentDrawerId);
+        if (nextDrawer && updatedRoom.currentWord) {
+          const transitionData: TurnTransitionType = {
+            nextDrawer,
+            nextWord: updatedRoom.currentWord,
+            round: updatedRoom.currentRound,
+            turnNumber: 1 // Simplified
+          };
+          setTransition(transitionData);
         }
       }
 
-      // Update messages
-      const updatedMessages = roomService.getRoomMessages(room.id);
-      setMessages(updatedMessages);
-    }, 1000);
-
-    // Simulate dummy messages every 5-15 seconds
-    const dummyMessageInterval = setInterval(() => {
-      if (Math.random() < 0.7) { // 70% chance of adding a message
-        roomService.addDummyMessage(room.id);
+      // Check if it's a new turn - clear canvas
+      if (updatedRoom.currentDrawerId !== room.currentDrawerId && updatedRoom.status === 'playing') {
+        canvasRef.current?.clearCanvas();
       }
-    }, Math.random() * 10000 + 5000); // Random between 5-15 seconds
+
+      setRoom(updatedRoom);
+
+      // Update current word when it changes
+      if (updatedRoom.currentWord && updatedRoom.currentWord !== currentWord) {
+        setCurrentWord(updatedRoom.currentWord);
+      }
+    };
+
+    const handleChatMessage = (message: ChatMessage) => {
+      setMessages(prev => [...prev, message]);
+    };
+
+    const handleDrawingUpdate = (drawingEvent: any) => {
+      // Drawing updates are handled by the canvas component
+    };
+
+    const handleDrawingClear = () => {
+      canvasRef.current?.clearCanvas();
+    };
+
+    // Register event listeners
+    socketService.onRoomUpdated(handleRoomUpdated);
+    socketService.onChatMessage(handleChatMessage);
+    socketService.onDrawingUpdate(handleDrawingUpdate);
+    socketService.onDrawingClear(handleDrawingClear);
 
     return () => {
-      clearInterval(roomUpdateInterval);
-      clearInterval(dummyMessageInterval);
+      // Cleanup event listeners
+      socketService.offRoomUpdated(handleRoomUpdated);
+      socketService.offChatMessage(handleChatMessage);
+      socketService.offDrawingUpdate(handleDrawingUpdate);
+      socketService.offDrawingClear(handleDrawingClear);
     };
-  }, [room.id]);
+  }, [room.id, room.status, room.currentDrawerId, currentWord]);
 
   const handleLeaveGame = () => {
-    roomService.leaveRoom(room.id, currentPlayer.id);
+    socketService.leaveRoom();
     onLeaveGame();
   };
 
   const handleSendMessage = (message: string) => {
-    roomService.addMessage(room.id, currentPlayer.id, message);
+    socketService.sendMessage(message);
   };
 
   const handleSkipTurn = () => {
     if (window.confirm('¿Estás seguro de que quieres pasar tu turno?')) {
-      roomService.skipTurn(room.id, currentPlayer.id);
+      socketService.skipTurn();
     }
   };
 
@@ -100,11 +110,6 @@ const GameRoom: React.FC<GameRoomProps> = ({
     onLeaveGame();
   };
 
-  const handleDrawingUpdate = (imageData: string) => {
-    // In a real implementation, this would send the drawing data to other players
-    // For now, we'll just log it
-    console.log('Drawing updated:', imageData.substring(0, 50) + '...');
-  };
 
   const isDrawing = currentPlayer.id === room.currentDrawerId;
 
@@ -237,7 +242,6 @@ const GameRoom: React.FC<GameRoomProps> = ({
             <DrawingCanvas
               ref={canvasRef}
               canDraw={isDrawing}
-              onDrawingUpdate={handleDrawingUpdate}
               width={800}
               height={500}
               className="w-full h-full"

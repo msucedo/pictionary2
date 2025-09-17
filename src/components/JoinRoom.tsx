@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Room, Player } from '../types/room';
-import { roomService } from '../services/roomService';
+import { socketService } from '../services/socketService';
 
 interface JoinRoomProps {
   onRoomJoined: (room: Room, player: Player) => void;
@@ -30,14 +30,13 @@ const JoinRoom: React.FC<JoinRoomProps> = ({ onRoomJoined, onBack }) => {
     setIsJoining(true);
 
     try {
-      const result = roomService.joinRoom(roomCode.trim().toUpperCase(), playerName.trim());
+      socketService.onRoomJoined((room: any, player: any) => {
+        onRoomJoined(room, player);
+      });
 
-      if (result) {
-        onRoomJoined(result.room, result.player);
-      }
+      socketService.joinRoom(roomCode.trim().toUpperCase(), playerName.trim());
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al unirse a la sala');
-    } finally {
       setIsJoining(false);
     }
   };

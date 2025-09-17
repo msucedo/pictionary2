@@ -1,4 +1,6 @@
 import React, { useRef, useEffect, useState, useImperativeHandle, forwardRef, useCallback } from 'react';
+import socketService from '../services/socketService';
+import { DrawingEvent } from '../types/room';
 
 interface Point {
   x: number;
@@ -7,7 +9,6 @@ interface Point {
 
 interface DrawingCanvasProps {
   canDraw?: boolean;
-  onDrawingUpdate?: (imageData: string) => void;
   width?: number;
   height?: number;
   className?: string;
@@ -21,7 +22,6 @@ export interface DrawingCanvasRef {
 
 const DrawingCanvas = forwardRef<DrawingCanvasRef, DrawingCanvasProps>(({
   canDraw = true,
-  onDrawingUpdate,
   width = 600,
   height = 400,
   className = ""
@@ -66,6 +66,64 @@ const DrawingCanvas = forwardRef<DrawingCanvasRef, DrawingCanvasProps>(({
     }
   }, [currentColor, brushSize, canvasHistory.length, saveCanvasState]);
 
+  // WebSocket drawing events listener
+  useEffect(() => {
+    if (!canDraw) {
+      // Only viewers listen to drawing events
+      const handleDrawingUpdate = (drawingEvent: DrawingEvent) => {
+        const canvas = canvasRef.current;
+        const ctx = canvas?.getContext('2d');
+        if (!ctx) return;
+
+        switch (drawingEvent.type) {
+          case 'start':
+            if (drawingEvent.x !== undefined && drawingEvent.y !== undefined) {
+              ctx.strokeStyle = drawingEvent.color || '#000000';
+              ctx.lineWidth = drawingEvent.size || 2;
+              ctx.lineCap = 'round';
+              ctx.lineJoin = 'round';
+              ctx.beginPath();
+              ctx.moveTo(drawingEvent.x, drawingEvent.y);
+              setLastPoint({ x: drawingEvent.x, y: drawingEvent.y });
+            }
+            break;
+
+          case 'draw':
+            if (drawingEvent.x !== undefined && drawingEvent.y !== undefined && lastPoint) {
+              ctx.beginPath();
+              ctx.moveTo(lastPoint.x, lastPoint.y);
+              ctx.lineTo(drawingEvent.x, drawingEvent.y);
+              ctx.stroke();
+              setLastPoint({ x: drawingEvent.x, y: drawingEvent.y });
+            }
+            break;
+
+          case 'end':
+            setLastPoint(null);
+            saveCanvasState();
+            break;
+        }
+      };
+
+      const handleDrawingClear = () => {
+        const canvas = canvasRef.current;
+        const ctx = canvas?.getContext('2d');
+        if (!ctx || !canvas) return;
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        saveCanvasState();
+      };
+
+      socketService.onDrawingUpdate(handleDrawingUpdate);
+      socketService.onDrawingClear(handleDrawingClear);
+
+      return () => {
+        socketService.offDrawingUpdate(handleDrawingUpdate);
+        socketService.offDrawingClear(handleDrawingClear);
+      };
+    }
+  }, [canDraw, lastPoint, saveCanvasState]);
+
   useEffect(() => {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext('2d');
@@ -101,6 +159,9 @@ const DrawingCanvas = forwardRef<DrawingCanvasRef, DrawingCanvasProps>(({
     setIsDrawing(true);
     const point = getPointFromEvent(event);
     setLastPoint(point);
+
+    // Send drawing start event via WebSocket
+    socketService.startDrawing(point.x, point.y, currentColor, brushSize);
   };
 
   const draw = (event: React.MouseEvent | React.TouchEvent) => {
@@ -121,18 +182,20 @@ const DrawingCanvas = forwardRef<DrawingCanvasRef, DrawingCanvasProps>(({
 
     setLastPoint(currentPoint);
 
-    // Notify parent of drawing update
-    if (onDrawingUpdate && canvas) {
-      onDrawingUpdate(canvas.toDataURL());
-    }
+    // Send drawing event via WebSocket
+    socketService.draw(currentPoint.x, currentPoint.y);
   };
 
   const stopDrawing = () => {
-    setIsDrawing(false);
-    setLastPoint(null);
     if (isDrawing) {
       saveCanvasState();
+      // Send drawing end event via WebSocket
+      if (canDraw) {
+        socketService.endDrawing();
+      }
     }
+    setIsDrawing(false);
+    setLastPoint(null);
   };
 
   const clearCanvas = () => {
@@ -143,9 +206,9 @@ const DrawingCanvas = forwardRef<DrawingCanvasRef, DrawingCanvasProps>(({
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     saveCanvasState();
 
-    // Notify parent of canvas clear
-    if (onDrawingUpdate) {
-      onDrawingUpdate(canvas.toDataURL());
+    // Send clear event via WebSocket if user can draw
+    if (canDraw) {
+      socketService.clearDrawing();
     }
   };
 

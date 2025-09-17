@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Room, Player } from '../types/room';
-import { roomService } from '../services/roomService';
+import { socketService } from '../services/socketService';
 
 interface RoomLobbyProps {
   room: Room;
@@ -18,31 +18,53 @@ const RoomLobby: React.FC<RoomLobbyProps> = ({
   const [room, setRoom] = useState<Room>(initialRoom);
   const [showSettings, setShowSettings] = useState(false);
 
-  // Simulate room updates (in a real app, this would be through WebSockets)
+  // Listen for game start events via WebSocket
   useEffect(() => {
-    const interval = setInterval(() => {
-      const updatedRoom = roomService.getRoom(room.id);
-      if (updatedRoom) {
-        setRoom(updatedRoom);
-      }
-    }, 1000);
+    const handleGameStarted = (updatedRoom: Room) => {
+      console.log('🎯 Game started event received!', updatedRoom);
+      setRoom(updatedRoom);
+      onStartGame(updatedRoom);
+    };
 
-    return () => clearInterval(interval);
-  }, [room.id]);
+    const handleRoomUpdated = (updatedRoom: Room) => {
+      console.log('📡 Room updated:', updatedRoom.status);
+      setRoom(updatedRoom);
+      if (updatedRoom.status === 'playing') {
+        onStartGame(updatedRoom);
+      }
+    };
+
+    socketService.onGameStarted(handleGameStarted);
+    socketService.onRoomUpdated(handleRoomUpdated);
+
+    return () => {
+      socketService.offGameStarted(handleGameStarted);
+      socketService.offRoomUpdated(handleRoomUpdated);
+    };
+  }, [room.id, onStartGame]);
 
   const handleStartGame = () => {
     try {
-      const updatedRoom = roomService.startGame(room.id, currentPlayer.id);
-      if (updatedRoom) {
-        onStartGame(updatedRoom);
+      console.log('🎮 Starting game with WebSocket...', {
+        socketConnected: socketService.isConnected(),
+        roomId: room.id,
+        isHost: currentPlayer.isHost
+      });
+
+      if (!socketService.isConnected()) {
+        alert('Socket no conectado. Intenta recargar la página.');
+        return;
       }
+
+      socketService.startGame();
     } catch (err) {
+      console.error('❌ Error starting game:', err);
       alert(err instanceof Error ? err.message : 'Error al iniciar el juego');
     }
   };
 
   const handleLeaveRoom = () => {
-    roomService.leaveRoom(room.id, currentPlayer.id);
+    socketService.leaveRoom();
     onLeaveRoom();
   };
 

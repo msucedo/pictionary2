@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Room, Player, GameSettings, DEFAULT_GAME_SETTINGS } from '../types/room';
-import { roomService } from '../services/roomService';
+import { socketService } from '../services/socketService';
 
 interface CreateRoomProps {
   onRoomCreated: (room: Room, player: Player) => void;
@@ -31,16 +31,13 @@ const CreateRoom: React.FC<CreateRoomProps> = ({ onRoomCreated, onBack }) => {
     setIsCreating(true);
 
     try {
-      const { room, hostPlayer } = roomService.createRoom(
-        playerName.trim(),
-        roomName.trim(),
-        settings
-      );
+      socketService.onRoomJoined((room: any, player: any) => {
+        onRoomCreated(room, player);
+      });
 
-      onRoomCreated(room, hostPlayer);
+      socketService.createRoom(playerName.trim(), roomName.trim(), settings);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al crear la sala');
-    } finally {
       setIsCreating(false);
     }
   };
