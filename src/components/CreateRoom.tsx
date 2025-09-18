@@ -31,6 +31,9 @@ const CreateRoom: React.FC<CreateRoomProps> = ({ onRoomCreated, onBack }) => {
     setIsCreating(true);
 
     try {
+      // Ensure connection before creating room
+      await socketService.connect();
+
       socketService.onRoomJoined((room: any, player: any) => {
         onRoomCreated(room, player);
       });

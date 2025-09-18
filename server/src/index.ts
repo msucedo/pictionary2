@@ -111,6 +111,54 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('room:rejoin', (roomId, playerId) => {
+    try {
+      console.log(`🔄 Player attempting to rejoin: ${playerId} to room: ${roomId}`);
+
+      const room = gameService.getRoom(roomId);
+      if (!room) {
+        console.log(`❌ Room ${roomId} not found for rejoin`);
+        socket.emit('room:not_found');
+        return;
+      }
+
+      const player = room.players.find(p => p.id === playerId);
+      if (!player) {
+        console.log(`❌ Player ${playerId} not found in room ${roomId}`);
+        socket.emit('error', 'Player not found in room');
+        return;
+      }
+
+      // Update player's socket ID in the game service
+      const updateResult = gameService.updatePlayerSocketId(roomId, playerId, socket.id);
+      if (!updateResult.success) {
+        console.log(`❌ Failed to update player socket ID: ${updateResult.error}`);
+        socket.emit('error', updateResult.error || 'Failed to rejoin room');
+        return;
+      }
+
+      // Join the socket to the room
+      socket.join(roomId);
+
+      // Send success response
+      socket.emit('room:joined', room, player);
+
+      // Notify other players about the reconnection
+      socket.to(roomId).emit('room:updated', room);
+
+      // Send chat history to rejoined player
+      const messages = gameService.getRoomMessages(roomId);
+      messages.forEach(message => {
+        socket.emit('chat:message', message);
+      });
+
+      console.log(`✅ Player ${player.name} successfully rejoined room ${room.code}`);
+    } catch (error) {
+      console.error('Error rejoining room:', error);
+      socket.emit('error', 'Error rejoining room');
+    }
+  });
+
   socket.on('room:leave', () => {
     handlePlayerDisconnect(socket.id);
   });

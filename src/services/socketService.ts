@@ -24,29 +24,24 @@ class SocketService {
   private serverUrl = process.env.REACT_APP_SERVER_URL || 'http://localhost:3001';
   private connectionPromise: Promise<void> | null = null;
   private isInitialized = false;
+  private reconnectHandlers: (() => void)[] = [];
 
   // Connection Management - Singleton pattern
   connect(): Promise<void> {
-    // If we already have a connection promise, return it
-    if (this.connectionPromise) {
-      console.log('🔄 Reusing existing connection promise');
-      return this.connectionPromise;
-    }
-
     // If already connected, resolve immediately
     if (this.socket && this.socket.connected) {
-      console.log('🔄 Already connected to server:', this.socket.id);
+      console.log('🔗 Already connected, reusing socket:', this.socket.id);
       return Promise.resolve();
     }
 
-    console.log('🚀 Creating new socket connection...');
+    // If we already have a connection promise, return it
+    if (this.connectionPromise) {
+      console.log('🔗 Connection in progress, waiting...');
+      return this.connectionPromise;
+    }
 
+    console.log('🔗 Creating new connection...');
     this.connectionPromise = new Promise((resolve, reject) => {
-      // Clean up any existing socket
-      if (this.socket) {
-        this.socket.removeAllListeners();
-        this.socket.disconnect();
-      }
 
       this.socket = io(this.serverUrl, {
         transports: ['websocket', 'polling'],
@@ -78,6 +73,8 @@ class SocketService {
       (this.socket.io as any).on('reconnect', () => {
         console.log('🔄 Reconnected to server:', this.socket?.id);
         this.isInitialized = true;
+        // Trigger custom reconnect handlers
+        this.reconnectHandlers.forEach(handler => handler());
       });
     });
 
@@ -99,6 +96,15 @@ class SocketService {
     return this.socket?.id || null;
   }
 
+  // Reconnection handlers
+  onReconnect(handler: () => void): void {
+    this.reconnectHandlers.push(handler);
+  }
+
+  offReconnect(handler: () => void): void {
+    this.reconnectHandlers = this.reconnectHandlers.filter(h => h !== handler);
+  }
+
   // Room Events
   createRoom(playerName: string, roomName: string, settings?: Partial<GameSettings>): void {
     console.log('🏠 EMITTING room:create with socket:', this.socket?.id);
@@ -111,57 +117,58 @@ class SocketService {
     this.socket?.emit('room:join', roomCode, playerName);
   }
 
+  rejoinRoom(roomId: string, playerId: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      if (!this.socket) {
+        reject(new Error('Socket not available'));
+        return;
+      }
+
+      console.log('🔄 Attempting to rejoin room:', { roomId, playerId });
+
+      // Listen for success/error responses
+      const onSuccess = (room: Room, player: Player) => {
+        console.log('✅ Successfully rejoined room');
+        this.socket?.off('room:joined', onSuccess);
+        this.socket?.off('room:not_found', onError);
+        this.socket?.off('error', onError);
+        resolve();
+      };
+
+      const onError = (error?: string) => {
+        console.log('❌ Failed to rejoin room:', error);
+        this.socket?.off('room:joined', onSuccess);
+        this.socket?.off('room:not_found', onError);
+        this.socket?.off('error', onError);
+        reject(new Error(error || 'Failed to rejoin room'));
+      };
+
+      this.socket.on('room:joined', onSuccess);
+      this.socket.on('room:not_found', onError);
+      this.socket.on('error', onError);
+
+      // Emit rejoin event
+      this.socket.emit('room:rejoin', roomId, playerId);
+
+      // Timeout after 5 seconds
+      setTimeout(() => {
+        onError('Rejoin timeout');
+      }, 5000);
+    });
+  }
+
   leaveRoom(): void {
     this.socket?.emit('room:leave');
   }
 
   // Game Events
   startGame(): void {
-    console.log('🎮 SocketService: Attempting to start game...', {
-      connected: this.isConnected(),
-      socketId: this.socket?.id,
-      socketExists: !!this.socket,
-      hasSocket: this.socket !== null,
-      socketConnected: this.socket?.connected,
-      socketInstance: this.socket
-    });
-
-    console.log('🔍 SocketService instance:', this);
-    console.log('🔍 Socket emit function:', this.socket?.emit);
-
-    if (!this.socket) {
-      console.error('❌ No socket instance when trying to start game');
+    if (!this.socket || !this.socket.connected) {
+      console.error('❌ Socket not connected');
       return;
     }
 
-    if (!this.isConnected()) {
-      console.error('❌ Socket not connected when trying to start game', {
-        socketConnected: this.socket.connected,
-        socketId: this.socket.id
-      });
-      return;
-    }
-
-    console.log('📤 About to emit game:start event to socket:', this.socket.id);
-    console.log('🔍 Socket transport state:', {
-      connected: this.socket.connected,
-      disconnected: this.socket.disconnected,
-      id: this.socket.id,
-      readyState: (this.socket as any).io.readyState
-    });
-
-    console.log('🚀 EMITTING gameStart NOW!!!');
-    this.socket?.emit('gameStart');
-    console.log('✅ Successfully emitted gameStart event');
-
-    // Verify event was actually sent
-    setTimeout(() => {
-      console.log('🔍 Post-emission socket state:', {
-        connected: this.socket?.connected,
-        id: this.socket?.id,
-        readyState: (this.socket as any)?.io?.readyState
-      });
-    }, 100);
+    this.socket.emit('gameStart');
   }
 
   skipTurn(): void {

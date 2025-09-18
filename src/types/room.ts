@@ -131,6 +131,7 @@ export interface ClientToServerEvents {
   // Room events
   'room:create': (playerName: string, roomName: string, settings?: Partial<GameSettings>) => void;
   'room:join': (roomCode: string, playerName: string) => void;
+  'room:rejoin': (roomId: string, playerId: string) => void;
   'room:leave': () => void;
 
   // Game events

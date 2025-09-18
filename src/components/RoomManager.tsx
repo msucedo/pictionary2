@@ -1,37 +1,49 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Room, Player } from '../types/room';
 import CreateRoom from './CreateRoom';
 import JoinRoom from './JoinRoom';
 import RoomLobby from './RoomLobby';
 import GameRoom from './GameRoom';
+import { useGame } from '../contexts/GameContext';
 
 type ViewState = 'menu' | 'create' | 'join' | 'lobby' | 'game';
 
 const RoomManager: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewState>('menu');
-  const [currentRoom, setCurrentRoom] = useState<Room | null>(null);
-  const [currentPlayer, setCurrentPlayer] = useState<Player | null>(null);
+  const { room, currentPlayer, setRoom, setCurrentPlayer, persistedRoomId, clearGameState } = useGame();
+
+  // Auto-restore state from persistent storage
+  useEffect(() => {
+    if (persistedRoomId && room && currentPlayer) {
+      if (room.status === 'playing') {
+        setCurrentView('game');
+      } else {
+        setCurrentView('lobby');
+      }
+    } else if (!persistedRoomId) {
+      setCurrentView('menu');
+    }
+  }, [persistedRoomId, room, currentPlayer]);
 
   const handleRoomCreated = (room: Room, player: Player) => {
-    setCurrentRoom(room);
+    setRoom(room);
     setCurrentPlayer(player);
     setCurrentView('lobby');
   };
 
   const handleRoomJoined = (room: Room, player: Player) => {
-    setCurrentRoom(room);
+    setRoom(room);
     setCurrentPlayer(player);
     setCurrentView('lobby');
   };
 
   const handleStartGame = (room: Room) => {
-    setCurrentRoom(room);
+    setRoom(room);
     setCurrentView('game');
   };
 
   const handleLeaveRoom = () => {
-    setCurrentRoom(null);
-    setCurrentPlayer(null);
+    clearGameState();
     setCurrentView('menu');
   };
 
@@ -94,9 +106,9 @@ const RoomManager: React.FC = () => {
         );
 
       case 'lobby':
-        return currentRoom && currentPlayer ? (
+        return room && currentPlayer ? (
           <RoomLobby
-            room={currentRoom}
+            room={room}
             currentPlayer={currentPlayer}
             onStartGame={handleStartGame}
             onLeaveRoom={handleLeaveRoom}
@@ -104,9 +116,9 @@ const RoomManager: React.FC = () => {
         ) : null;
 
       case 'game':
-        return currentRoom && currentPlayer ? (
+        return room && currentPlayer ? (
           <GameRoom
-            room={currentRoom}
+            room={room}
             currentPlayer={currentPlayer}
             onLeaveGame={handleLeaveRoom}
           />

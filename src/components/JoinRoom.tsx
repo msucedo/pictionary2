@@ -30,6 +30,9 @@ const JoinRoom: React.FC<JoinRoomProps> = ({ onRoomJoined, onBack }) => {
     setIsJoining(true);
 
     try {
+      // Ensure connection before joining room
+      await socketService.connect();
+
       socketService.onRoomJoined((room: any, player: any) => {
         onRoomJoined(room, player);
       });

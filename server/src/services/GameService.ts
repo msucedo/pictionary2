@@ -463,6 +463,34 @@ export class GameService {
     return this.roomMessages.get(roomId) || [];
   }
 
+  // Player reconnection
+  updatePlayerSocketId(roomId: string, playerId: string, newSocketId: string): { success: boolean; error?: string } {
+    const room = this.rooms.get(roomId);
+    if (!room) {
+      return { success: false, error: 'Room not found' };
+    }
+
+    const player = room.players.find(p => p.id === playerId);
+    if (!player) {
+      return { success: false, error: 'Player not found in room' };
+    }
+
+    // Remove old socket mapping if it exists
+    if (player.socketId) {
+      this.playerRoomMap.delete(player.socketId);
+    }
+
+    // Update player's socket ID
+    player.socketId = newSocketId;
+    player.isConnected = true;
+
+    // Add new socket mapping
+    this.playerRoomMap.set(newSocketId, roomId);
+
+    console.log(`✅ Updated player ${player.name} socket ID from reconnection`);
+    return { success: true };
+  }
+
   // Drawing
   updateDrawing(roomId: string, drawingData: string): void {
     const room = this.rooms.get(roomId);

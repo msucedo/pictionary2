@@ -21,19 +21,7 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
   useEffect(() => {
     console.log('🔌 SocketProvider initializing...');
 
-    // Initialize connection immediately when provider mounts
-    const initConnection = async () => {
-      try {
-        await socketService.connect();
-        setIsConnected(socketService.isConnected());
-        setSocketId(socketService.getSocketId());
-        console.log('🔌 SocketProvider connected successfully');
-      } catch (error) {
-        console.error('🔌 SocketProvider connection failed:', error);
-      }
-    };
-
-    initConnection();
+    // Don't auto-connect, just set up monitoring
 
     // Set up connection status listeners
     const updateConnectionStatus = () => {

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Room, Player } from '../types/room';
 import { socketService } from '../services/socketService';
+import { useGame } from '../contexts/GameContext';
 
 interface RoomLobbyProps {
   room: Room;
@@ -15,21 +16,31 @@ const RoomLobby: React.FC<RoomLobbyProps> = ({
   onStartGame,
   onLeaveRoom
 }) => {
+  const { setRoom: setGameRoom } = useGame();
   const [room, setRoom] = useState<Room>(initialRoom);
   const [showSettings, setShowSettings] = useState(false);
 
   // Listen for game start events via WebSocket
   useEffect(() => {
+    let gameStarted = false; // Prevent double execution
+
     const handleGameStarted = (updatedRoom: Room) => {
       console.log('🎯 Game started event received!', updatedRoom);
       setRoom(updatedRoom);
-      onStartGame(updatedRoom);
+      setGameRoom(updatedRoom); // Update global context
+      if (!gameStarted) {
+        gameStarted = true;
+        onStartGame(updatedRoom);
+      }
     };
 
     const handleRoomUpdated = (updatedRoom: Room) => {
       console.log('📡 Room updated:', updatedRoom.status);
       setRoom(updatedRoom);
-      if (updatedRoom.status === 'playing') {
+      setGameRoom(updatedRoom); // Update global context
+      // Only start game if we haven't already started and status is playing
+      if (updatedRoom.status === 'playing' && !gameStarted) {
+        gameStarted = true;
         onStartGame(updatedRoom);
       }
     };
@@ -41,14 +52,16 @@ const RoomLobby: React.FC<RoomLobbyProps> = ({
       socketService.offGameStarted(handleGameStarted);
       socketService.offRoomUpdated(handleRoomUpdated);
     };
-  }, [room.id, onStartGame]);
+  }, [room.id, onStartGame, setGameRoom]);
 
   const handleStartGame = () => {
     try {
       console.log('🎮 Starting game with WebSocket...', {
         socketConnected: socketService.isConnected(),
         roomId: room.id,
-        isHost: currentPlayer.isHost
+        isHost: currentPlayer.isHost,
+        socketId: socketService.getSocketId(),
+        socketService: socketService
       });
 
       if (!socketService.isConnected()) {
@@ -56,7 +69,9 @@ const RoomLobby: React.FC<RoomLobbyProps> = ({
         return;
       }
 
+      console.log('🔍 RoomLobby: About to call socketService.startGame()');
       socketService.startGame();
+      console.log('🔍 RoomLobby: Called socketService.startGame()');
     } catch (err) {
       console.error('❌ Error starting game:', err);
       alert(err instanceof Error ? err.message : 'Error al iniciar el juego');
